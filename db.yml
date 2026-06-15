@@ -1,0 +1,55 @@
+services:
+  mongodb_container:
+    image: mongo:7
+    restart: always
+    container_name: mongodb_container
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-dmft_survey}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-root}
+    ports:
+      - 27017:27017
+    volumes:
+      - ./mongodb_data_container:/data/db
+
+  redis_container:
+    image: redis:7
+    restart: always
+    container_name: redis_container
+    env_file:
+      - .env
+    ports:
+      - ${REDIS_PORT}:6379
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # --stop-writes-on-bgsave-error no avoids MISCONF when RDB snapshot fails (disk full, bind-mount
+    # perms on Docker Desktop, etc.). Prefer fixing disk/volume; in strict prod you may omit this flag.
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --stop-writes-on-bgsave-error no
+    volumes:
+      - ./redis_data:/data
+
+  minio_container:
+    image: quay.io/minio/minio:latest
+    restart: always
+    container_name: minio_container
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - 9000:9000
+      - 9001:9001
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./minio_data:/data
+
+volumes:
+  mongodb_data_container:
+  redis_data:
+  minio_data:

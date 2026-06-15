@@ -1,0 +1,12 @@
+dist
+mongodb_data_container
+node_modules
+redis_data
+logs
+.env
+.DS_Store
+.cursor
+.pnpm-store
+graphify-out
+minio_data
+backup

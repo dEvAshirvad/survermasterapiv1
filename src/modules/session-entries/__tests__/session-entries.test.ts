@@ -83,6 +83,64 @@ describe('session entries API', () => {
     expect(detail.body.data.formCode).toBe('A');
   });
 
+  it('patches entry with dense answers array (no null slots)', async () => {
+    const sessionId = await createSession();
+    const created = await request(app)
+      .post(`/api/v1/sessions/${sessionId}/entries`)
+      .send({ formCode: 'A' })
+      .expect(201);
+    const entryId = created.body.data.id as string;
+
+    const updated = await request(app)
+      .patch(`/api/v1/sessions/${sessionId}/entries/${entryId}`)
+      .send({
+        expectedVersion: 0,
+        answers: [
+          {
+            title: { en: 'Placeholder 1', hi: 'प्लेसहोल्डर 1' },
+            uom: { en: 'N/A', hi: 'लागू नहीं' },
+            answer: '',
+          },
+          {
+            title: { en: 'Question 2', hi: 'प्रश्न 2' },
+            uom: { en: 'Yes/No', hi: 'हां/नहीं' },
+            answer: 'Yes',
+          },
+        ],
+        progress: { answered: 1, totalVisible: 5, percent: 20 },
+      })
+      .expect(200);
+
+    expect(updated.body.data.version).toBe(1);
+    expect(updated.body.data.answers[1].answer).toBe('Yes');
+  });
+
+  it('rejects patch when answers array contains null slots', async () => {
+    const sessionId = await createSession();
+    const created = await request(app)
+      .post(`/api/v1/sessions/${sessionId}/entries`)
+      .send({ formCode: 'B' })
+      .expect(201);
+    const entryId = created.body.data.id as string;
+
+    const response = await request(app)
+      .patch(`/api/v1/sessions/${sessionId}/entries/${entryId}`)
+      .send({
+        expectedVersion: 0,
+        answers: [
+          null,
+          {
+            title: { en: 'Question 1', hi: 'प्रश्न 1' },
+            uom: { en: 'Yes/No', hi: 'हां/नहीं' },
+            answer: 'Yes',
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('patches entry with optimistic concurrency and returns 409 on stale version', async () => {
     const sessionId = await createSession();
     const created = await request(app)
@@ -95,19 +153,31 @@ describe('session entries API', () => {
       .patch(`/api/v1/sessions/${sessionId}/entries/${entryId}`)
       .send({
         expectedVersion: 0,
-        answers: { 'B1.1': 'Yes' },
+        answers: [
+          {
+            title: { en: 'Question 1', hi: 'प्रश्न 1' },
+            uom: { en: 'Yes/No', hi: 'हां/नहीं' },
+            answer: 'Yes',
+          },
+        ],
         progress: { answered: 1, totalVisible: 5, percent: 20 },
       })
       .expect(200);
 
     expect(updated.body.data.version).toBe(1);
-    expect(updated.body.data.answers['B1.1']).toBe('Yes');
+    expect(updated.body.data.answers[0].answer).toBe('Yes');
 
     const conflict = await request(app)
       .patch(`/api/v1/sessions/${sessionId}/entries/${entryId}`)
       .send({
         expectedVersion: 0,
-        answers: { 'B1.2': 'No' },
+        answers: [
+          {
+            title: { en: 'Question 2', hi: 'प्रश्न 2' },
+            uom: { en: 'Yes/No', hi: 'हां/नहीं' },
+            answer: 'No',
+          },
+        ],
       })
       .expect(409);
 

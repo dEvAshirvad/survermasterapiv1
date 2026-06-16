@@ -37,6 +37,17 @@ export const sessionEntryProgressSchema = z.object({
   percent: z.coerce.number().min(0).max(100),
 });
 
+const bilingualValueSchema = z.object({
+  en: z.string(),
+  hi: z.string(),
+});
+
+const entryAnswerItemSchema = z.object({
+  title: bilingualValueSchema,
+  uom: bilingualValueSchema,
+  answer: z.unknown(),
+});
+
 const contextSnapshotPatchSchema = z.object({
   surveyDate: z.coerce.date().optional(),
   surveyorName: z.string().trim().min(1).max(100).optional(),
@@ -45,7 +56,7 @@ const contextSnapshotPatchSchema = z.object({
 
 export const patchSessionEntryBodySchema = z
   .object({
-    answers: z.record(z.string(), z.unknown()).optional(),
+    answers: z.array(entryAnswerItemSchema).optional(),
     progress: sessionEntryProgressSchema.optional(),
     contextSnapshot: contextSnapshotPatchSchema.optional(),
     expectedVersion: z.coerce.number().int().min(0),
@@ -89,6 +100,7 @@ const contextSnapshotMongooseSchema = new Schema(
     gramPanchayat: { type: String, required: true, trim: true },
     village: { type: String, required: true, trim: true },
     surveyDate: { type: Date, required: true },
+    distanceFromNearestMine: { type: Number, required: true, min: 1 },
     totalPopulation: { type: Number, required: true, min: 1 },
     totalHouseholds: { type: Number, required: true, min: 1 },
     scHouseholds: { type: Number, required: true, min: 1 },
@@ -124,7 +136,7 @@ const sessionEntryMongooseSchema = new Schema(
       enum: ['draft', 'submitted'],
       default: 'draft',
     },
-    answers: { type: Schema.Types.Mixed, required: true, default: {} },
+    answers: { type: [Schema.Types.Mixed], required: true, default: [] },
     progress: { type: sessionEntryProgressMongooseSchema, required: true, default: () => ({}) },
     contextSnapshot: { type: contextSnapshotMongooseSchema, required: true },
     version: { type: Number, required: true, min: 0, default: 0 },

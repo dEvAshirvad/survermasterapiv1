@@ -157,8 +157,26 @@ router.post(
  *               - expectedVersion
  *             properties:
  *               answers:
- *                 type: object
- *                 additionalProperties: true
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - title
+ *                     - uom
+ *                     - answer
+ *                   properties:
+ *                     title:
+ *                       type: object
+ *                       properties:
+ *                         en: { type: string }
+ *                         hi: { type: string }
+ *                     uom:
+ *                       type: object
+ *                       properties:
+ *                         en: { type: string }
+ *                         hi: { type: string }
+ *                     answer:
+ *                       nullable: true
  *               progress:
  *                 type: object
  *               expectedVersion:

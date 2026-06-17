@@ -2,7 +2,8 @@
 # Replace survey.example.com with your domain.
 
 server {
-  listen 443 ssl http2;
+  listen 443 ssl;
+  http2 on;
   server_name survey.example.com;
 
   ssl_certificate /etc/letsencrypt/live/survey.example.com/fullchain.pem;

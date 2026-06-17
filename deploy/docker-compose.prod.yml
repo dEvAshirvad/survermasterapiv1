@@ -137,7 +137,7 @@ services:
 
   web:
     build:
-      context: ../../app
+      context: ${APP_BUILD_CONTEXT:-../../surveymasterappv1}
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}

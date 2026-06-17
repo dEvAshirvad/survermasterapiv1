@@ -33,13 +33,15 @@ cd surveymaster2026/api/deploy
 sudo bash scripts/install-docker.sh
 ```
 
-Expected directory layout:
+Expected directory layout (your server):
 
 ```text
-/opt/surveymaster2026/
-  api/          # this repository
-  app/          # Next.js frontend (sibling of api)
+/home/ubuntu/surveymaster/
+  survermasterapiv1/     # API repo
+  surveymasterappv1/     # frontend repo
 ```
+
+Set `APP_BUILD_CONTEXT=../../surveymasterappv1` in `.env.production` (default in the example file).
 
 ## Configure environment
 

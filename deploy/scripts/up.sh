@@ -11,15 +11,22 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-if [[ ! -d ../../app ]]; then
-  echo "Expected frontend at ../../app relative to api/deploy." >&2
-  exit 1
-fi
-
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
+
+APP_BUILD_CONTEXT="${APP_BUILD_CONTEXT:-../../surveymasterappv1}"
+if [[ ! -d "$APP_BUILD_CONTEXT" ]]; then
+  echo "Frontend not found at: $ROOT_DIR/$APP_BUILD_CONTEXT" >&2
+  echo "Set APP_BUILD_CONTEXT in $ENV_FILE to your app repo path." >&2
+  exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker not found. Run: sudo bash scripts/install-docker.sh" >&2
+  exit 1
+fi
 
 docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" build --pull
 docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d

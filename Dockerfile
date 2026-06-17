@@ -12,9 +12,9 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM base AS prod-deps
-ENV HUSKY=0
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+# --ignore-scripts: skip "prepare" (husky) — devDependency not present with --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 FROM base AS builder
 ENV HUSKY=0

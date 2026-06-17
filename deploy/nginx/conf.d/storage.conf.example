@@ -1,0 +1,27 @@
+# Object storage vhost. Copy to conf.d/storage.conf after DNS for STORAGE_DOMAIN exists.
+
+upstream dmft_minio_storage {
+  server minio:9000;
+  keepalive 8;
+}
+
+server {
+  listen 80;
+  server_name storage.example.com;
+
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+  }
+
+  location / {
+    proxy_pass http://dmft_minio_storage;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 50m;
+    proxy_read_timeout 300s;
+    proxy_request_buffering off;
+  }
+}

@@ -37,6 +37,7 @@ const EnvSchema = z.object({
   INTERNAL_API_TOKEN: z.string().optional(),
   // MinIO (S3-compatible object storage)
   MINIO_ENDPOINT: z.string().url().optional(),
+  MINIO_PUBLIC_ENDPOINT: z.string().url().optional(),
   MINIO_REGION: z.string().default('us-east-1'),
   MINIO_BUCKET: z.string().optional(),
   MINIO_ACCESS_KEY_ID: z.string().optional(),

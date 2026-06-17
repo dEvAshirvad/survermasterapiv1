@@ -25,6 +25,7 @@ interface PresignGetParams {
 function readStorageConfig() {
   return {
     endpoint: env.MINIO_ENDPOINT?.trim(),
+    publicEndpoint: env.MINIO_PUBLIC_ENDPOINT?.trim() || env.MINIO_ENDPOINT?.trim(),
     region: env.MINIO_REGION?.trim() || 'us-east-1',
     bucket: env.MINIO_BUCKET?.trim(),
     accessKeyId: env.MINIO_ACCESS_KEY_ID?.trim(),
@@ -36,6 +37,20 @@ function readStorageConfig() {
 }
 
 let storageClient: S3Client | null = null;
+let publicStorageClient: S3Client | null = null;
+
+function createStorageClient(endpoint: string): S3Client {
+  const cfg = readStorageConfig();
+  return new S3Client({
+    endpoint: endpoint.replace(/\/+$/, ''),
+    region: cfg.region,
+    forcePathStyle: cfg.forcePathStyle,
+    credentials: {
+      accessKeyId: cfg.accessKeyId!,
+      secretAccessKey: cfg.secretAccessKey!,
+    },
+  });
+}
 
 function getStorageClient(): S3Client {
   if (storageClient)
@@ -46,16 +61,22 @@ function getStorageClient(): S3Client {
     throw new Error('MinIO storage is not fully configured');
   }
 
-  storageClient = new S3Client({
-    endpoint: cfg.endpoint.replace(/\/+$/, ''),
-    region: cfg.region,
-    forcePathStyle: cfg.forcePathStyle,
-    credentials: {
-      accessKeyId: cfg.accessKeyId,
-      secretAccessKey: cfg.secretAccessKey,
-    },
-  });
+  storageClient = createStorageClient(cfg.endpoint);
   return storageClient;
+}
+
+function getPublicStorageClient(): S3Client {
+  if (publicStorageClient)
+    return publicStorageClient;
+
+  const cfg = readStorageConfig();
+  const endpoint = cfg.publicEndpoint;
+  if (!endpoint || !cfg.accessKeyId || !cfg.secretAccessKey) {
+    throw new Error('MinIO storage is not fully configured');
+  }
+
+  publicStorageClient = createStorageClient(endpoint);
+  return publicStorageClient;
 }
 
 export function isS3Configured(): boolean {
@@ -93,7 +114,7 @@ export async function presignPutObject(params: PresignPutParams): Promise<{
 }> {
   assertS3Configured();
   const cfg = readStorageConfig();
-  const client = getStorageClient();
+  const client = getPublicStorageClient();
   const command = new PutObjectCommand({
     Bucket: cfg.bucket,
     Key: params.key,
@@ -112,7 +133,7 @@ export async function presignGetObject(params: PresignGetParams): Promise<{
 }> {
   assertS3Configured();
   const cfg = readStorageConfig();
-  const client = getStorageClient();
+  const client = getPublicStorageClient();
   const command = new HeadObjectCommand({
     Bucket: cfg.bucket,
     Key: params.key,

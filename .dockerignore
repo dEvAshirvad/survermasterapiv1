@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.gitignore
+.env*
+logs
+mongodb_data_container
+redis_data
+minio_data
+graphify-out
+.cursor
+coverage
+*.md
+.DS_Store
+**/__tests__

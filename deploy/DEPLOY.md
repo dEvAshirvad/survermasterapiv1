@@ -2,16 +2,32 @@
 
 Production deployment for the DMFT Survey stack:
 
-| Service | Role | Internal port |
-|---------|------|----------------|
-| **nginx** | TLS termination, reverse proxy | 80 / 443 |
-| **web** | Next.js survey UI | 3000 |
-| **api** | Express API (`/api/v1`, `/health`, `/docs`) | 3001 |
-| **mongodb** | Sessions, entries, survey data | 27017 |
-| **redis** | Cache, idempotency | 6379 |
-| **minio** | S3-compatible file storage | 9000 |
+| Service | Role | Exposed to internet? |
+|---------|------|----------------------|
+| **nginx** | Single entry on **port 3000** (configurable) | Yes — only public port |
+| **web** | Next.js UI | No — internal `web:3000` |
+| **api** | Express API | No — internal `api:3001` |
+| **mongodb** | Survey data | No |
+| **redis** | Cache / idempotency | No |
 
-Architecture matches the API graph hubs: `SessionsService`, `SessionEntriesService`, MongoDB (`connectDB`), Redis (`isRedisReady`), and MinIO/S3 (`readStorageConfig`).
+### How traffic flows
+
+```text
+Browser  http://YOUR_VPS:3000/
+            │
+            ▼
+         nginx :80  (mapped to host :3000)
+            ├── /           →  web:3000   (UI)
+            ├── /api/...    →  api:3001   (API)
+            ├── /health     →  api:3001
+            └── /docs       →  api:3001
+```
+
+The frontend is built with `NEXT_PUBLIC_API_URL=http://YOUR_VPS:3000`, so the browser calls `/api/v1/...` on the **same port**; nginx forwards those requests to the API container. The API never needs a public port.
+
+Object storage (MinIO) is **not** included in production yet. The API boots without it and logs that attachments are disabled until you add file storage later.
+
+Architecture matches the API graph hubs: `SessionsService`, `SessionEntriesService`, MongoDB (`connectDB`), and Redis (`isRedisReady`).
 
 ## Server prerequisites
 
@@ -19,21 +35,13 @@ Architecture matches the API graph hubs: `SessionsService`, `SessionEntriesServi
 
 On a fresh **Ubuntu 22.04/24.04** VPS:
 
-1. Point DNS A records to the VPS IP:
-   - `survey.example.com` → app + API (via nginx)
-   - `storage.example.com` → MinIO (presigned upload/download URLs)
-2. Open firewall ports: `22`, `80`, `443` (UFW or Hostinger firewall).
-3. Install Docker:
+1. Open firewall port **3000** (and `22` for SSH). Optionally `80`/`443` later for TLS.
+2. Point DNS at the VPS only if using a domain (you can start with `http://VPS_IP:3000`).
 
 ```bash
-cd /opt
-sudo git clone <your-api-repo-url> surveymaster2026/api
-sudo git clone <your-app-repo-url> surveymaster2026/app
-cd surveymaster2026/api/deploy
+cd /home/ubuntu/surveymaster/survermasterapiv1/deploy
 sudo bash scripts/install-docker.sh
 ```
-
-Expected directory layout (your server):
 
 ```text
 /home/ubuntu/surveymaster/
@@ -46,7 +54,7 @@ Set `APP_BUILD_CONTEXT=../../surveymasterappv1` in `.env.production` (default in
 ## Configure environment
 
 ```bash
-cd /opt/surveymaster2026/api/deploy
+cd /home/ubuntu/surveymaster/survermasterapiv1/deploy
 cp .env.production.example .env.production
 nano .env.production
 ```
@@ -54,9 +62,10 @@ nano .env.production
 Required changes:
 
 - Replace every `CHANGE_ME_*` secret (use long random passwords).
-- Set `APP_DOMAIN`, `STORAGE_DOMAIN`, `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS`, `MINIO_PUBLIC_ENDPOINT`, and keep `MINIO_ENDPOINT` internal (`http://minio:9000` in compose).
+- Set `APP_DOMAIN`, `NEXT_PUBLIC_API_URL`, and `CORS_ORIGINS` to your VPS URL with port, e.g. `http://203.0.113.10:3000` (all three should match the origin users open in the browser).
 - `REDIS_PASSWORD` must be **at least 12 characters** (enforced by API in production).
 - `INTERNAL_API_TOKEN` protects `/ready` and `/metrics` when set.
+- Do **not** set MinIO variables unless you add MinIO to the compose file.
 
 ## Start the stack
 
@@ -75,46 +84,47 @@ Check status:
 
 ```bash
 docker compose -f docker-compose.prod.yml ps
-curl -fsS http://127.0.0.1/health
+curl -fsS http://127.0.0.1:3000/health
 ```
 
-## HTTPS (Let's Encrypt)
+Open the app: `http://YOUR_VPS_IP:3000`
 
-1. Ensure HTTP works on port 80 first.
-2. Edit `nginx/conf.d/https.conf.example` and `nginx/conf.d/storage.conf.example` with your domains; copy them to `https.conf` and `storage.conf`.
-3. Obtain certificates (one-time):
+## HTTPS (Let's Encrypt) — optional later
+
+When you move to a domain on ports 80/443, add `"80:80"` and `"443:443"` to the nginx `ports` section in `docker-compose.prod.yml`, then:
+
+1. Edit `nginx/conf.d/https.conf.example` with your domain; copy to `https.conf`.
+2. Obtain certificate (one-time):
 
 ```bash
 docker compose -f docker-compose.prod.yml run --rm certbot certonly \
   --webroot -w /var/www/certbot \
   -d survey.example.com \
-  -d storage.example.com \
   --email you@example.com \
   --agree-tos \
   --no-eff-email
 ```
 
-4. Reload nginx:
+3. Reload nginx:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
 ```
 
-5. Enable auto-renewal:
+4. Enable auto-renewal:
 
 ```bash
 docker compose -f docker-compose.prod.yml --profile ssl up -d certbot
 ```
 
-## URL map (production)
+## URL map (production on port 3000)
 
 | URL | Target |
 |-----|--------|
-| `https://survey.example.com/` | Next.js UI |
-| `https://survey.example.com/api/v1/...` | Express API |
-| `https://survey.example.com/health` | API liveness |
-| `https://survey.example.com/docs` | Scalar API reference |
-| `https://storage.example.com/...` | MinIO (presigned URLs) |
+| `http://YOUR_VPS:3000/` | Next.js UI |
+| `http://YOUR_VPS:3000/api/v1/...` | Express API |
+| `http://YOUR_VPS:3000/health` | API liveness |
+| `http://YOUR_VPS:3000/docs` | Scalar API reference |
 
 Frontend build bakes in `NEXT_PUBLIC_API_URL` at image build time. After changing it, rebuild the web image:
 
@@ -135,8 +145,8 @@ docker compose -f docker-compose.prod.yml logs -f web nginx
 **Restart after code deploy**
 
 ```bash
-git -C /opt/surveymaster2026/api pull
-git -C /opt/surveymaster2026/app pull
+git -C /home/ubuntu/surveymaster/survermasterapiv1 pull
+git -C /home/ubuntu/surveymaster/surveymasterappv1 pull
 ./scripts/up.sh
 ```
 
@@ -154,16 +164,28 @@ docker cp dmft-mongodb:/data/db/backup-$(date +%F).archive ./backups/
 
 **Persisted volumes**
 
-- `mongodb_data`, `redis_data`, `minio_data` — data stores
-- `api_uploads` — temporary/persistent multer uploads
+- `mongodb_data`, `redis_data` — data stores
+- `api_uploads` — temporary multer uploads on disk (if used before MinIO)
 - `certbot_certs` — TLS certificates
+
+## Adding file storage later (MinIO)
+
+When you need photo/file uploads:
+
+1. Restore the `minio` service in `docker-compose.prod.yml` (see git history).
+2. Add `nginx/conf.d/storage.conf` from `storage.conf.example`.
+3. Set MinIO env vars in `.env.production`.
+4. Point `storage.yourdomain.com` DNS at the VPS and include it in the TLS cert.
+
+Until then, local dev can still use `db.yml` / `docker-compose.yml` with MinIO.
 
 ## Local development vs production
 
 | Concern | Local (`db.yml` / `docker-compose.yml`) | Production (`deploy/docker-compose.prod.yml`) |
 |---------|----------------------------------------|---------------------------------------------|
+| MinIO | Optional for dev | Not deployed |
 | DB ports exposed | Yes (27017, 6379, 9000) | No (internal network only) |
-| TLS | No | nginx + certbot |
+| TLS | No (port 3000) | Optional nginx + certbot on 80/443 later |
 | API build | `pnpm dev` on host | Multi-stage `Dockerfile` |
 | Frontend | `pnpm dev` on host | Next.js `standalone` image |
 
@@ -173,12 +195,11 @@ docker cp dmft-mongodb:/data/db/backup-$(date +%F).archive ./backups/
 |---------|--------|
 | API exits on boot | `docker logs dmft-api` — usually bad `MONGODB_URI` or short `REDIS_PASSWORD` |
 | CORS errors in browser | `CORS_ORIGINS` must include exact UI origin (scheme + host) |
-| Upload presign fails | `MINIO_ENDPOINT` must match public storage URL; bucket created on API boot |
 | Autosave 400 loop | Ensure API + app images are current (dense answers patch) |
+| "Object storage is not configured" in logs | Expected until MinIO is added; safe to ignore |
 
 ## Security notes
 
 - Do not commit `.env.production`.
 - Rotate secrets if `.env` was ever exposed.
-- Keep MinIO console (`9001`) off the public internet (not published in prod compose).
 - Set `INTERNAL_API_TOKEN` before exposing `/ready` or `/metrics` beyond localhost.

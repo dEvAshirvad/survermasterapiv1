@@ -33,7 +33,10 @@ docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d
 
 docker compose -f docker-compose.prod.yml ps
 
+PUBLIC_PORT="${PUBLIC_PORT:-3000}"
+VERIFY_HOST="${APP_DOMAIN:-127.0.0.1:${PUBLIC_PORT}}"
+
 echo
 echo "Stack is up. Verify:"
-echo "  curl -fsS http://127.0.0.1/health"
-echo "  open https://${APP_DOMAIN:-your-domain}"
+echo "  curl -fsS http://127.0.0.1:${PUBLIC_PORT}/health"
+echo "  open http://${VERIFY_HOST}"

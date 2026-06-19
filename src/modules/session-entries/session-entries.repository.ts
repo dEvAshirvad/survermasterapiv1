@@ -23,8 +23,6 @@ export interface SessionEntriesListOptions {
 export interface SessionFormStats {
   formCode: string;
   total: number;
-  draft: number;
-  submitted: number;
 }
 
 export class SessionEntriesRepository {
@@ -128,32 +126,6 @@ export class SessionEntriesRepository {
       .exec();
   }
 
-  async submit(
-    sessionId: string,
-    entryId: string,
-    expectedVersion: number,
-  ): Promise<SessionEntryLean | null> {
-    return SessionEntryModel.findOneAndUpdate(
-      {
-        _id: entryId,
-        sessionId,
-        deletedAt: null,
-        status: 'draft',
-        version: expectedVersion,
-      },
-      {
-        $set: {
-          status: 'submitted',
-          submittedAt: new Date(),
-          version: expectedVersion + 1,
-        },
-      },
-      { returnDocument: 'after' },
-    )
-      .lean<SessionEntryLean>()
-      .exec();
-  }
-
   async softDelete(sessionId: string, entryId: string): Promise<SessionEntryLean | null> {
     return SessionEntryModel.findOneAndUpdate(
       {
@@ -186,16 +158,6 @@ export class SessionEntriesRepository {
         $group: {
           _id: '$formCode',
           total: { $sum: 1 },
-          draft: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'draft'] }, 1, 0],
-            },
-          },
-          submitted: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'submitted'] }, 1, 0],
-            },
-          },
         },
       },
       {
@@ -203,8 +165,6 @@ export class SessionEntriesRepository {
           _id: 0,
           formCode: '$_id',
           total: 1,
-          draft: 1,
-          submitted: 1,
         },
       },
       { $sort: { formCode: 1 } },
@@ -215,8 +175,6 @@ export class SessionEntriesRepository {
             $push: {
               formCode: '$formCode',
               total: '$total',
-              draft: '$draft',
-              submitted: '$submitted',
             },
           },
         },

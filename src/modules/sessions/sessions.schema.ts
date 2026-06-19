@@ -115,8 +115,6 @@ export type UpdateSessionInput = z.infer<typeof updateSessionBodySchema>;
 export interface SessionFormSummaryItem {
   formCode: string;
   total: number;
-  draft: number;
-  submitted: number;
 }
 
 export interface SessionFormsSummaryResponse {

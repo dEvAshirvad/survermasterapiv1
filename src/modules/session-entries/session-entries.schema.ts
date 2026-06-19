@@ -80,10 +80,6 @@ export const patchSessionEntryBodySchema = z
     },
   );
 
-export const submitSessionEntryBodySchema = z.object({
-  expectedVersion: z.coerce.number().int().min(0),
-});
-
 const sessionEntryProgressMongooseSchema = new Schema(
   {
     answered: { type: Number, required: true, min: 0, default: 0 },
@@ -167,6 +163,5 @@ export type SessionEntryDocument = InferSchemaType<
 export type SessionEntryLean = SessionEntryDocument;
 export type CreateSessionEntryInput = z.infer<typeof createSessionEntryBodySchema>;
 export type PatchSessionEntryInput = z.infer<typeof patchSessionEntryBodySchema>;
-export type SubmitSessionEntryInput = z.infer<typeof submitSessionEntryBodySchema>;
 
 export const SessionEntryModel = model('SessionEntry', sessionEntryMongooseSchema);

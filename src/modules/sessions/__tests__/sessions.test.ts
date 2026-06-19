@@ -215,16 +215,6 @@ describe('sessions API', () => {
       .expect(201);
 
     await request(app)
-      .post(`/api/v1/sessions/${sessionId}/entries/${formAEntry1.body.data.id}/submit`)
-      .send({ expectedVersion: 0 })
-      .expect(200);
-
-    await request(app)
-      .post(`/api/v1/sessions/${sessionId}/entries/${formBEntry.body.data.id}/submit`)
-      .send({ expectedVersion: 0 })
-      .expect(200);
-
-    await request(app)
       .get(`/api/v1/sessions/${sessionId}/entries/${formAEntry2.body.data.id}`)
       .expect(200);
 
@@ -235,8 +225,8 @@ describe('sessions API', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.sessionId).toBe(sessionId);
     expect(res.body.data.forms).toEqual([
-      { formCode: 'A', total: 1, draft: 0, submitted: 1 },
-      { formCode: 'B', total: 1, draft: 0, submitted: 1 },
+      { formCode: 'A', total: 1 },
+      { formCode: 'B', total: 1 },
     ]);
   });
 

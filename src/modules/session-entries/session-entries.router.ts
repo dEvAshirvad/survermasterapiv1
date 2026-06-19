@@ -7,7 +7,6 @@ import {
   getSessionEntry,
   listSessionEntries,
   patchSessionEntry,
-  submitSessionEntry,
 } from '@/modules/session-entries/session-entries.controller';
 import {
   createSessionEntryBodySchema,
@@ -16,7 +15,6 @@ import {
   sessionEntryParamsSchema,
   sessionFormParamsSchema,
   sessionParamsSchema,
-  submitSessionEntryBodySchema,
 } from '@/modules/session-entries/session-entries.schema';
 
 const router = createRouter();
@@ -226,50 +224,6 @@ router.delete(
   '/sessions/:id/entries/:entryId',
   validateRequest({ params: sessionEntryParamsSchema }),
   deleteSessionEntry,
-);
-
-/**
- * @openapi
- * /api/v1/sessions/{id}/entries/{entryId}/submit:
- *   post:
- *     tags:
- *       - SessionEntries
- *     summary: Submit draft entry
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: entryId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - expectedVersion
- *             properties:
- *               expectedVersion:
- *                 type: integer
- *     responses:
- *       200:
- *         description: Entry submitted
- *       409:
- *         description: Version or status conflict
- */
-router.post(
-  '/sessions/:id/entries/:entryId/submit',
-  validateRequest({
-    params: sessionEntryParamsSchema,
-    body: submitSessionEntryBodySchema,
-  }),
-  submitSessionEntry,
 );
 
 export default router;

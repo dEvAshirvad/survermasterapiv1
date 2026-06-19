@@ -2,8 +2,8 @@
 
 ## Module purpose
 
-`session_entries` stores draft and submitted answers for each static form section under a session.  
-It enables card-wise entry listing, empty draft creation, partial save, submit, and soft delete flows used by the frontend.
+`session_entries` stores autosaved answers for each static form section under a session.  
+It enables card-wise entry listing, empty draft creation, partial save, and soft delete flows used by the frontend.
 
 All routes are local-team open in this phase (no auth headers).
 
@@ -15,7 +15,6 @@ All routes are local-team open in this phase (no auth headers).
 | `POST` | `/api/v1/sessions/:id/entries` | Open | Create an empty draft entry for a form code. |
 | `GET` | `/api/v1/sessions/:id/entries/:entryId` | Open | Fetch a single session entry. |
 | `PATCH` | `/api/v1/sessions/:id/entries/:entryId` | Open | Partially update answers/progress with optimistic concurrency. |
-| `POST` | `/api/v1/sessions/:id/entries/:entryId/submit` | Open | Mark a draft as submitted with optimistic concurrency. |
 | `DELETE` | `/api/v1/sessions/:id/entries/:entryId` | Open | Soft-delete an entry. |
 
 ## GET /api/v1/sessions/:id/entries
@@ -277,57 +276,6 @@ Error:
 - Write endpoint with side effects.
 - Frontend should always send current `expectedVersion`.
 
-## POST /api/v1/sessions/:id/entries/:entryId/submit
-
-Submit a draft entry.
-
-### Request format
-
-- `params`: `id`, `entryId`
-- `body`: `{ "expectedVersion": <number> }`
-
-### Response format
-
-Success:
-
-```json
-{
-  "success": true,
-  "status": 200,
-  "data": {
-    "id": "666b2c3d4e5f678901234567",
-    "status": "submitted",
-    "version": 4
-  }
-}
-```
-
-Error:
-
-```json
-{
-  "success": false,
-  "status": 409,
-  "error": {
-    "code": "VERSION_CONFLICT",
-    "title": "VERSION_CONFLICT",
-    "message": "Entry submit failed due to stale version or status."
-  }
-}
-```
-
-### Error codes
-
-| Code | HTTP | Meaning |
-| --- | --- | --- |
-| `VALIDATION_ERROR` | 400 | Invalid params/body. |
-| `NOT_FOUND` | 404 | Session or entry not found. |
-| `VERSION_CONFLICT` | 409 | Stale version or entry not in draft status. |
-
-### Notes
-
-- Write endpoint with side effects.
-
 ## DELETE /api/v1/sessions/:id/entries/:entryId
 
 Soft delete entry by setting `deletedAt`.
@@ -382,10 +330,9 @@ Error:
   1. Create/select session.
   2. List entries by `formCode`.
   3. Create draft entry.
-  4. PATCH repeatedly with `expectedVersion`.
-  5. Submit with latest `expectedVersion`.
+  4. PATCH repeatedly with `expectedVersion` (autosave).
 - Cache hints:
-  - Entry list can be cached briefly and invalidated after create/patch/submit/delete.
+  - Entry list can be cached briefly and invalidated after create/patch/delete.
 - Retry:
   - Retry network errors safely.
   - On `409`, refetch entry and replay user edits with latest version.

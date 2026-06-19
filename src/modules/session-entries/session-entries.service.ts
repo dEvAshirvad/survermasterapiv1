@@ -1,7 +1,6 @@
 import type {
   CreateSessionEntryInput,
   PatchSessionEntryInput,
-  SubmitSessionEntryInput,
 } from '@/modules/session-entries/session-entries.schema';
 
 import APIError from '@/configs/errors/APIError';
@@ -116,29 +115,6 @@ export class SessionEntriesService {
       });
     }
     return updated;
-  }
-
-  async submit(sessionId: string, entryId: string, body: SubmitSessionEntryInput) {
-    await this.assertSessionExists(sessionId);
-    const submitted = await sessionEntriesRepository.submit(
-      sessionId,
-      entryId,
-      body.expectedVersion,
-    );
-    if (!submitted) {
-      const existing = await sessionEntriesRepository.findById(sessionId, entryId);
-      if (!existing) {
-        throw mapNotFound('session_entry', { sessionId, entryId });
-      }
-      throw mapConflict('Entry submit failed due to stale version or status.', {
-        sessionId,
-        entryId,
-        expectedVersion: body.expectedVersion,
-        actualVersion: existing.version,
-        status: existing.status,
-      });
-    }
-    return submitted;
   }
 
   async softDelete(sessionId: string, entryId: string) {

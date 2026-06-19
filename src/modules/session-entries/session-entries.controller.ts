@@ -3,7 +3,6 @@ import type { NextFunction, Request, Response } from 'express';
 import type {
   CreateSessionEntryInput,
   PatchSessionEntryInput,
-  SubmitSessionEntryInput,
 } from '@/modules/session-entries/session-entries.schema';
 
 import { parsePagination } from '@/lib/paginator';
@@ -89,23 +88,6 @@ export async function patchSessionEntry(
     const body = req.body as PatchSessionEntryInput;
     const updated = await sessionEntriesService.patch(sessionId, entryId, body);
     return Respond(res, updated, 200);
-  }
-  catch (error) {
-    return next(error);
-  }
-}
-
-export async function submitSessionEntry(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const sessionId = paramStr(req.params.id);
-    const entryId = paramStr(req.params.entryId);
-    const body = req.body as SubmitSessionEntryInput;
-    const submitted = await sessionEntriesService.submit(sessionId, entryId, body);
-    return Respond(res, submitted, 200);
   }
   catch (error) {
     return next(error);

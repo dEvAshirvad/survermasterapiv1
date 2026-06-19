@@ -220,22 +220,13 @@ describe('session entries API', () => {
     expect(String(patched.body.data.contextSnapshot.surveyDate)).toContain('2026-04-22');
   });
 
-  it('submits and soft deletes entry', async () => {
+  it('soft deletes entry', async () => {
     const sessionId = await createSession();
     const created = await request(app)
       .post(`/api/v1/sessions/${sessionId}/entries`)
       .send({ formCode: 'C' })
       .expect(201);
     const entryId = created.body.data.id as string;
-
-    const submitted = await request(app)
-      .post(`/api/v1/sessions/${sessionId}/entries/${entryId}/submit`)
-      .send({ expectedVersion: 0 })
-      .expect(200);
-
-    expect(submitted.body.data.status).toBe('submitted');
-    expect(submitted.body.data.version).toBe(1);
-    expect(submitted.body.data.submittedAt).toBeTruthy();
 
     const deleted = await request(app)
       .delete(`/api/v1/sessions/${sessionId}/entries/${entryId}`)

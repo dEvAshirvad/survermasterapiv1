@@ -177,12 +177,19 @@ function buildBasePipeline(filters: AdminFiltersInput): PipelineStage[] {
   return stages;
 }
 
+type FormProgressAggregateRow = Omit<AdminFormProgressItem, 'formCode'> & {
+  formCode?: string;
+};
+
 function normalizeFormProgress(
-  rows: Omit<AdminFormProgressItem, 'formCode'>[] & { formCode?: string }[],
+  rows: FormProgressAggregateRow[],
 ): AdminFormProgressItem[] {
-  const byCode = new Map(
-    rows.map(row => [row.formCode, row as AdminFormProgressItem]),
-  );
+  const byCode = new Map<string, AdminFormProgressItem>();
+  for (const row of rows) {
+    if (row.formCode) {
+      byCode.set(row.formCode, { ...row, formCode: row.formCode });
+    }
+  }
 
   return FORM_CODES.map((formCode) => {
     const existing = byCode.get(formCode);

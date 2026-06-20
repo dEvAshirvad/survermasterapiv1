@@ -153,6 +153,7 @@ git -C /home/ubuntu/surveymaster/surveymasterappv1 pull
 **Backup MongoDB**
 
 ```bash
+mkdir -p backups
 docker exec dmft-mongodb mongodump \
   --username="$MONGO_INITDB_ROOT_USERNAME" \
   --password="$MONGO_INITDB_ROOT_PASSWORD" \
@@ -160,6 +161,25 @@ docker exec dmft-mongodb mongodump \
   --db=dmft_survey \
   --archive=/data/db/backup-$(date +%F).archive
 docker cp dmft-mongodb:/data/db/backup-$(date +%F).archive ./backups/
+```
+
+**Clear database (backup first, then drop)**
+
+```bash
+chmod +x scripts/db-clear.sh
+./scripts/db-clear.sh --yes          # backup to deploy/backups/ + drop dmft_survey
+./scripts/db-clear.sh --yes --redis  # also flush Redis cache
+```
+
+Restore from a backup archive:
+
+```bash
+docker cp ./backups/backup-dmft_survey-YYYY-MM-DD-HHMMSS.archive dmft-mongodb:/tmp/restore.archive
+docker exec dmft-mongodb mongorestore \
+  --username="$MONGO_INITDB_ROOT_USERNAME" \
+  --password="$MONGO_INITDB_ROOT_PASSWORD" \
+  --authenticationDatabase=admin \
+  --archive=/tmp/restore.archive
 ```
 
 **Persisted volumes**

@@ -1,5 +1,4 @@
 import { createRouter } from '@/configs/serverConfig';
-import { requireInternalAccess } from '@/middlewares/require-internal-access';
 import { validateRequest } from '@/middlewares/zod-validate-request';
 import {
   getAdminDashboard,
@@ -13,8 +12,6 @@ import {
 } from '@/modules/admin/admin.schema';
 
 const router = createRouter();
-
-router.use(requireInternalAccess);
 
 router.get(
   '/dashboard',

@@ -26,6 +26,11 @@ export interface SessionFormStats {
 }
 
 export class SessionEntriesRepository {
+  async hardDeleteBySessionId(sessionId: string): Promise<number> {
+    const result = await SessionEntryModel.deleteMany({ sessionId }).exec();
+    return result.deletedCount ?? 0;
+  }
+
   async listAllBySession(sessionId: string): Promise<SessionEntryLean[]> {
     return SessionEntryModel.find({
       sessionId,

@@ -131,6 +131,19 @@ export class SessionsService {
     const sessions = await sessionsRepository.searchByContext(filters);
     return sessions.map(toSessionListItem);
   }
+
+  async deleteCascade(sessionId: string) {
+    const session = await sessionsRepository.deleteById(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const deletedEntryCount = await sessionEntriesRepository.hardDeleteBySessionId(sessionId);
+    return {
+      id: String(session._id),
+      deletedEntryCount,
+    };
+  }
 }
 
 export const sessionsService = new SessionsService();

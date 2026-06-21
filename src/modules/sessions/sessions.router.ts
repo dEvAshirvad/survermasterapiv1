@@ -2,6 +2,7 @@ import { createRouter } from '@/configs/serverConfig';
 import { validateRequest } from '@/middlewares/zod-validate-request';
 import {
   createSession,
+  deleteSession,
   getSessionDetail,
   getSessionFormsSummary,
   listSessionBlockOptions,
@@ -314,6 +315,12 @@ router.patch(
     body: updateSessionBodySchema,
   }),
   updateSession,
+);
+
+router.delete(
+  '/:id',
+  validateRequest({ params: sessionIdParamsSchema }),
+  deleteSession,
 );
 
 router.get(

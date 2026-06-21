@@ -60,6 +60,12 @@ export class SessionsRepository {
       .exec();
   }
 
+  async deleteById(id: string): Promise<SessionLean | null> {
+    return SessionModel.findByIdAndDelete(id)
+      .lean<SessionLean>()
+      .exec();
+  }
+
   async list(page: number, limit: number) {
     const skip = calculateSkip(page, limit);
     const sort = createSortObject(undefined, 'desc');

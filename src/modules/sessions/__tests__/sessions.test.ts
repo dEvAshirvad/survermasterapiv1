@@ -307,4 +307,35 @@ describe('sessions API', () => {
 
     expect(duplicate.body.error.code).toBe('SESSION_CONTEXT_CONFLICT');
   });
+
+  it('dELETE /api/v1/sessions/:id deletes session and all entries', async () => {
+    const created = await request(app)
+      .post('/api/v1/sessions')
+      .send(makeSessionPayload(`Test Session delete ${Date.now()}`))
+      .expect(201);
+    const sessionId = created.body.data.id as string;
+
+    await request(app)
+      .post(`/api/v1/sessions/${sessionId}/entries`)
+      .send({ formCode: 'A' })
+      .expect(201);
+    await request(app)
+      .post(`/api/v1/sessions/${sessionId}/entries`)
+      .send({ formCode: 'B' })
+      .expect(201);
+
+    const deleted = await request(app)
+      .delete(`/api/v1/sessions/${sessionId}`)
+      .expect(200);
+
+    expect(deleted.body.success).toBe(true);
+    expect(deleted.body.data.id).toBe(sessionId);
+    expect(deleted.body.data.deletedEntryCount).toBeGreaterThanOrEqual(2);
+
+    const sessionDoc = await SessionModel.findById(sessionId).lean().exec();
+    expect(sessionDoc).toBeNull();
+
+    const entries = await SessionEntryModel.find({ sessionId }).lean().exec();
+    expect(entries).toHaveLength(0);
+  });
 });

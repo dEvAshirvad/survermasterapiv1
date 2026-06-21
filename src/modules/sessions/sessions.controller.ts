@@ -93,6 +93,31 @@ export async function updateSession(
   }
 }
 
+export async function deleteSession(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const sessionId = paramStr(req.params.id);
+    const deleted = await sessionsService.deleteCascade(sessionId);
+
+    if (!deleted) {
+      return next(
+        new APIError({
+          ...CORE_ERRORS.NOT_FOUND,
+          META: { resource: 'session', id: sessionId },
+        }),
+      );
+    }
+
+    return Respond(res, deleted, 200);
+  }
+  catch (error) {
+    return next(error);
+  }
+}
+
 export async function getSessionFormsSummary(
   req: Request,
   res: Response,

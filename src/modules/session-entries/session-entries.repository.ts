@@ -26,6 +26,30 @@ export interface SessionFormStats {
 }
 
 export class SessionEntriesRepository {
+  async listAllBySession(sessionId: string): Promise<SessionEntryLean[]> {
+    return SessionEntryModel.find({
+      sessionId,
+      deletedAt: null,
+    })
+      .sort({ formCode: 1, updatedAt: -1 })
+      .lean<SessionEntryLean[]>()
+      .exec();
+  }
+
+  async listAllBySessionAndForm(
+    sessionId: string,
+    formCode: string,
+  ): Promise<SessionEntryLean[]> {
+    return SessionEntryModel.find({
+      sessionId,
+      formCode,
+      deletedAt: null,
+    })
+      .sort({ updatedAt: -1 })
+      .lean<SessionEntryLean[]>()
+      .exec();
+  }
+
   async createDraft(
     sessionId: string,
     formCode: string,

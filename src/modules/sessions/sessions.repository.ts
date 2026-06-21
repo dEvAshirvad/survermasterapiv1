@@ -13,6 +13,14 @@ import {
 } from '@/lib/paginator';
 import { SessionModel } from '@/modules/sessions/sessions.schema';
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function exactCaseInsensitive(value: string) {
+  return new RegExp(`^${escapeRegex(value.trim())}$`, 'i');
+}
+
 export class SessionsRepository {
   async create(input: CreateSessionInput): Promise<SessionDocument> {
     const doc = await SessionModel.create(input);
@@ -30,9 +38,9 @@ export class SessionsRepository {
     excludeId?: string,
   ): Promise<SessionLean | null> {
     const query: Record<string, unknown> = {
-      'context.district': district,
-      'context.block': block,
-      'context.gramPanchayat': gramPanchayat,
+      'context.district': exactCaseInsensitive(district),
+      'context.block': exactCaseInsensitive(block),
+      'context.gramPanchayat': exactCaseInsensitive(gramPanchayat),
     };
 
     if (excludeId) {
@@ -79,7 +87,9 @@ export class SessionsRepository {
   }
 
   async listDistinctBlocks(district: string): Promise<string[]> {
-    return SessionModel.distinct('context.block', { 'context.district': district })
+    return SessionModel.distinct('context.block', {
+      'context.district': exactCaseInsensitive(district),
+    })
       .then(items =>
         items
           .filter(item => typeof item === 'string')
@@ -89,8 +99,8 @@ export class SessionsRepository {
 
   async listDistinctGramPanchayats(district: string, block: string): Promise<string[]> {
     return SessionModel.distinct('context.gramPanchayat', {
-      'context.district': district,
-      'context.block': block,
+      'context.district': exactCaseInsensitive(district),
+      'context.block': exactCaseInsensitive(block),
     })
       .then(items =>
         items
@@ -102,11 +112,11 @@ export class SessionsRepository {
   async searchByContext(filters: SessionSearchFilters): Promise<SessionLean[]> {
     const query: Record<string, unknown> = {};
     if (filters.district)
-      query['context.district'] = filters.district;
+      query['context.district'] = exactCaseInsensitive(filters.district);
     if (filters.block)
-      query['context.block'] = filters.block;
+      query['context.block'] = exactCaseInsensitive(filters.block);
     if (filters.gramPanchayat)
-      query['context.gramPanchayat'] = filters.gramPanchayat;
+      query['context.gramPanchayat'] = exactCaseInsensitive(filters.gramPanchayat);
 
     return SessionModel.find(query)
       .sort({ updatedAt: -1, createdAt: -1 })

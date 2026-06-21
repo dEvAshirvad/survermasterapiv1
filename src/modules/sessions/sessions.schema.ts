@@ -63,7 +63,7 @@ const sessionContextMongooseSchema = new Schema(
     gramPanchayat: { type: String, required: true, trim: true },
     village: { type: String, required: true, trim: true },
     surveyDate: { type: Date, required: true },
-    distanceFromNearestMine: {type: Number, required: true, min: 1},
+    distanceFromNearestMine: { type: Number, required: true, min: 1 },
     totalPopulation: { type: Number, required: true, min: 1 },
     totalHouseholds: { type: Number, required: true, min: 1 },
     scHouseholds: { type: Number, required: true, min: 1 },

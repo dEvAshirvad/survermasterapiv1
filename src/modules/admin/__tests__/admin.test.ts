@@ -1,5 +1,6 @@
+import type { Types } from 'mongoose';
+
 import request from 'supertest';
-import { Types } from 'mongoose';
 import {
   afterAll,
   beforeAll,

@@ -200,7 +200,7 @@ describe('sessions API', () => {
       .expect(201);
     const sessionId = created.body.data.id as string;
 
-    const formAEntry1 = await request(app)
+    await request(app)
       .post(`/api/v1/sessions/${sessionId}/entries`)
       .send({ formCode: 'A' })
       .expect(201);
@@ -209,7 +209,7 @@ describe('sessions API', () => {
       .post(`/api/v1/sessions/${sessionId}/forms/A/entry`)
       .expect(200);
 
-    const formBEntry = await request(app)
+    await request(app)
       .post(`/api/v1/sessions/${sessionId}/entries`)
       .send({ formCode: 'B' })
       .expect(201);

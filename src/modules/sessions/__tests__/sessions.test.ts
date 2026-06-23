@@ -1,6 +1,7 @@
 import request from 'supertest';
 import {
   afterAll,
+  afterEach,
   beforeAll,
   describe,
   expect,
@@ -10,60 +11,81 @@ import {
 import connectDB, { disconnectDB } from '@/configs/db/mongodb';
 import createApp from '@/configs/serverConfig';
 import { SessionEntryModel } from '@/modules/session-entries/session-entries.schema';
+import { buildSessionTitle } from '@/modules/sessions/sessions-title';
 import { SessionModel } from '@/modules/sessions/sessions.schema';
 
 const app = createApp();
 
-const validPayload = {
-  title: `Test Session ${Date.now()}`,
-  context: {
-    district: 'Korba',
-    block: 'Kartala',
-    gramPanchayat: 'Test GP',
-    village: 'Test Village',
-    surveyDate: '2026-03-15',
-    totalPopulation: 1200,
-    totalHouseholds: 250,
-    scHouseholds: 40,
-    stHouseholds: 60,
-    miningAffectedArea: 'direct' as const,
-    surveyorName: 'Rajesh Kumar',
-    surveyorNameNIT: 'Priya Sharma',
-  },
+const validContext = {
+  district: 'SessionsTest-Korba',
+  block: 'Kartala',
+  gramPanchayat: 'Test GP',
+  village: 'Test Village',
+  surveyDate: '2026-03-15',
+  distanceFromNearestMine: 0,
+  totalPopulation: 1200,
+  totalHouseholds: 250,
+  scHouseholds: 40,
+  stHouseholds: 60,
+  miningAffectedArea: 'direct' as const,
+  surveyorName: 'Rajesh Kumar',
+  surveyorNameNIT: 'Priya Sharma',
 };
 
 let contextCounter = 0;
 
-function makeSessionPayload(title: string, contextOverrides: Partial<typeof validPayload.context> = {}) {
+function makeSessionPayload(contextOverrides: Partial<typeof validContext> = {}) {
   contextCounter += 1;
-  return {
-    title,
-    context: {
-      ...validPayload.context,
-      district: `Korba-${contextCounter}`,
-      block: `Kartala-${contextCounter}`,
-      gramPanchayat: `Test GP-${contextCounter}`,
-      ...contextOverrides,
-    },
+  const context = {
+    ...validContext,
+    district: `SessionsTest-Korba-${contextCounter}`,
+    block: `Kartala-${contextCounter}`,
+    gramPanchayat: `Test GP-${contextCounter}`,
+    ...contextOverrides,
   };
+
+  return { context };
+}
+
+function expectedTitleFromPayloadContext(
+  context: Pick<typeof validContext, 'district' | 'block' | 'gramPanchayat' | 'village' | 'surveyDate'>,
+) {
+  return buildSessionTitle({
+    district: context.district,
+    block: context.block,
+    gramPanchayat: context.gramPanchayat,
+    village: context.village,
+    surveyDate: new Date(context.surveyDate),
+  });
+}
+
+async function cleanupSessionsTestData() {
+  const sessions = await SessionModel.find({ 'context.district': /^SessionsTest-/ }).select('_id').lean();
+  const sessionIds = sessions.map(session => session._id);
+  if (sessionIds.length > 0) {
+    await SessionEntryModel.deleteMany({ sessionId: { $in: sessionIds } });
+    await SessionModel.deleteMany({ _id: { $in: sessionIds } });
+  }
 }
 
 describe('sessions API', () => {
   beforeAll(async () => {
     await connectDB();
-    await SessionEntryModel.deleteMany({});
-    await SessionModel.deleteMany({ title: /^Test Session / });
+    await cleanupSessionsTestData();
     await SessionModel.syncIndexes();
   });
 
+  afterEach(async () => {
+    await cleanupSessionsTestData();
+  });
+
   afterAll(async () => {
-    await SessionEntryModel.deleteMany({});
-    await SessionModel.deleteMany({ title: /^Test Session / });
+    await cleanupSessionsTestData();
     await disconnectDB();
   });
 
-  it('pOST /api/v1/sessions creates a session and returns id', async () => {
-    const payload = makeSessionPayload(`Test Session create ${Date.now()}`);
+  it('pOST /api/v1/sessions creates a session with auto-generated title', async () => {
+    const payload = makeSessionPayload();
     const res = await request(app)
       .post('/api/v1/sessions')
       .send(payload)
@@ -77,7 +99,7 @@ describe('sessions API', () => {
       .exec();
 
     expect(stored).toBeTruthy();
-    expect(stored?.title).toContain('Test Session create');
+    expect(stored?.title).toBe(expectedTitleFromPayloadContext(payload.context));
     expect(stored?.context.surveyDate).toBeInstanceOf(Date);
     expect(stored?.context).toMatchObject({
       district: payload.context.district,
@@ -94,10 +116,33 @@ describe('sessions API', () => {
     });
   });
 
+  it('pOST /api/v1/sessions defaults omitted household counts to zero', async () => {
+    const payload = makeSessionPayload({
+      totalPopulation: undefined,
+      totalHouseholds: undefined,
+      scHouseholds: undefined,
+      stHouseholds: undefined,
+    });
+
+    const res = await request(app)
+      .post('/api/v1/sessions')
+      .send(payload)
+      .expect(201);
+
+    const stored = await SessionModel.findById(res.body.data.id)
+      .lean()
+      .exec();
+
+    expect(stored?.context.totalPopulation).toBe(0);
+    expect(stored?.context.totalHouseholds).toBe(0);
+    expect(stored?.context.scHouseholds).toBe(0);
+    expect(stored?.context.stHouseholds).toBe(0);
+  });
+
   it('pOST /api/v1/sessions rejects invalid body with 400', async () => {
     const res = await request(app)
       .post('/api/v1/sessions')
-      .send({ title: 'Missing context' })
+      .send({ context: { district: 'Only district' } })
       .expect(400);
 
     expect(res.body.success).toBe(false);
@@ -105,9 +150,7 @@ describe('sessions API', () => {
   });
 
   it('gET /api/v1/sessions returns paginated list', async () => {
-    await request(app).post('/api/v1/sessions').send(
-      makeSessionPayload(`Test Session list ${Date.now()}`),
-    );
+    await request(app).post('/api/v1/sessions').send(makeSessionPayload());
 
     const res = await request(app)
       .get('/api/v1/sessions')
@@ -124,9 +167,10 @@ describe('sessions API', () => {
   });
 
   it('gET /api/v1/sessions/:id returns detail without auth header', async () => {
+    const payload = makeSessionPayload();
     const created = await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session detail ${Date.now()}`))
+      .send(payload)
       .expect(201);
 
     const res = await request(app)
@@ -135,7 +179,7 @@ describe('sessions API', () => {
 
     expect(res.body.success).toBe(true);
     expect(res.body.data.id).toBe(created.body.data.id);
-    expect(res.body.data.title).toContain('Test Session detail');
+    expect(res.body.data.title).toBe(expectedTitleFromPayloadContext(payload.context));
     expect(res.body.data.forms).toEqual([]);
     expect(res.body.data.summary).toEqual({
       formCount: 0,
@@ -152,28 +196,28 @@ describe('sessions API', () => {
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
-  it('pATCH /api/v1/sessions/:id updates session fields', async () => {
-    const payload = makeSessionPayload(`Test Session patch ${Date.now()}`);
+  it('pATCH /api/v1/sessions/:id updates session fields and regenerates title', async () => {
+    const payload = makeSessionPayload();
     const created = await request(app)
       .post('/api/v1/sessions')
       .send(payload)
       .expect(201);
 
+    const updatedContext = {
+      ...payload.context,
+      village: 'Updated Village',
+      miningAffectedArea: 'indirect' as const,
+      surveyDate: '2026-06-20',
+    };
+
     const res = await request(app)
       .patch(`/api/v1/sessions/${created.body.data.id}`)
-      .send({
-        title: 'Updated Session Title',
-        context: {
-          ...payload.context,
-          village: 'Updated Village',
-          miningAffectedArea: 'indirect',
-        },
-      })
+      .send({ context: updatedContext })
       .expect(200);
 
     expect(res.body.success).toBe(true);
     expect(res.body.data.id).toBe(created.body.data.id);
-    expect(res.body.data.title).toBe('Updated Session Title');
+    expect(res.body.data.title).toBe(expectedTitleFromPayloadContext(updatedContext));
     expect(res.body.data.context.village).toBe('Updated Village');
     expect(res.body.data.context.miningAffectedArea).toBe('indirect');
   });
@@ -181,7 +225,7 @@ describe('sessions API', () => {
   it('gET /api/v1/sessions/:id/forms-summary returns empty forms for new session', async () => {
     const created = await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session summary empty ${Date.now()}`))
+      .send(makeSessionPayload())
       .expect(201);
 
     const res = await request(app)
@@ -196,7 +240,7 @@ describe('sessions API', () => {
   it('gET /api/v1/sessions/:id/forms-summary returns grouped form counts', async () => {
     const created = await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session summary grouped ${Date.now()}`))
+      .send(makeSessionPayload())
       .expect(201);
     const sessionId = created.body.data.id as string;
 
@@ -233,8 +277,8 @@ describe('sessions API', () => {
   it('lists district/block/gram-panchayat options and supports filtered search', async () => {
     await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session options 1 ${Date.now()}`, {
-        district: 'D1',
+      .send(makeSessionPayload({
+        district: 'SessionsTest-D1',
         block: 'B1',
         gramPanchayat: 'GP1',
         village: 'V1',
@@ -243,8 +287,8 @@ describe('sessions API', () => {
 
     await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session options 2 ${Date.now()}`, {
-        district: 'D1',
+      .send(makeSessionPayload({
+        district: 'SessionsTest-D1',
         block: 'B2',
         gramPanchayat: 'GP2',
         village: 'V2',
@@ -254,37 +298,50 @@ describe('sessions API', () => {
     const districts = await request(app)
       .get('/api/v1/sessions/options/districts')
       .expect(200);
-    expect(districts.body.data).toContain('D1');
+    expect(districts.body.data).toContain('SessionsTest-D1');
 
     const blocks = await request(app)
       .get('/api/v1/sessions/options/blocks')
-      .query({ district: 'D1' })
+      .query({ district: 'SessionsTest-D1' })
       .expect(200);
     expect(blocks.body.data).toEqual(expect.arrayContaining(['B1', 'B2']));
 
     const gps = await request(app)
       .get('/api/v1/sessions/options/gram-panchayats')
-      .query({ district: 'D1', block: 'B1' })
+      .query({ district: 'SessionsTest-D1', block: 'B1' })
       .expect(200);
     expect(gps.body.data).toContain('GP1');
     expect(gps.body.data).not.toContain('GP2');
 
+    const villages = await request(app)
+      .get('/api/v1/sessions/options/villages')
+      .query({ district: 'SessionsTest-D1', block: 'B1', gramPanchayat: 'GP1' })
+      .expect(200);
+    expect(villages.body.data).toContain('V1');
+    expect(villages.body.data).not.toContain('V2');
+
     const search = await request(app)
       .get('/api/v1/sessions/search')
-      .query({ district: 'D1', block: 'B1', gramPanchayat: 'GP1' })
+      .query({
+        district: 'SessionsTest-D1',
+        block: 'B1',
+        gramPanchayat: 'GP1',
+        village: 'V1',
+      })
       .expect(200);
     expect(search.body.success).toBe(true);
     expect(search.body.data.length).toBeGreaterThan(0);
-    expect(search.body.data.every((item: { context: { district: string; block: string; gramPanchayat: string } }) =>
-      item.context.district === 'D1'
+    expect(search.body.data.every((item: { context: { district: string; block: string; gramPanchayat: string; village: string } }) =>
+      item.context.district === 'SessionsTest-D1'
       && item.context.block === 'B1'
-      && item.context.gramPanchayat === 'GP1',
+      && item.context.gramPanchayat === 'GP1'
+      && item.context.village === 'V1',
     )).toBe(true);
   });
 
   it('returns 409 for duplicate district-block-gramPanchayat composite key', async () => {
-    const payload = makeSessionPayload(`Test Session duplicate ${Date.now()}`, {
-      district: 'UNIQUE_D',
+    const payload = makeSessionPayload({
+      district: 'SessionsTest-UNIQUE_D',
       block: 'UNIQUE_B',
       gramPanchayat: 'UNIQUE_GP',
     });
@@ -297,7 +354,6 @@ describe('sessions API', () => {
     const duplicate = await request(app)
       .post('/api/v1/sessions')
       .send({
-        ...makeSessionPayload(`Test Session duplicate 2 ${Date.now()}`),
         context: {
           ...payload.context,
           village: 'Another village',
@@ -311,7 +367,7 @@ describe('sessions API', () => {
   it('dELETE /api/v1/sessions/:id deletes session and all entries', async () => {
     const created = await request(app)
       .post('/api/v1/sessions')
-      .send(makeSessionPayload(`Test Session delete ${Date.now()}`))
+      .send(makeSessionPayload())
       .expect(201);
     const sessionId = created.body.data.id as string;
 

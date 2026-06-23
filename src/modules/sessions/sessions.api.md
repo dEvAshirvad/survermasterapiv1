@@ -14,25 +14,25 @@ Routes are open for local team usage in this phase (no auth headers).
 | `POST` | `/api/v1/sessions` | Open | Create a session; returns `{ id }`. |
 | `GET` | `/api/v1/sessions` | Open | Paginated list of sessions. |
 | `GET` | `/api/v1/sessions/:id` | Open | Session detail with summary placeholders. |
-| `PATCH` | `/api/v1/sessions/:id` | Open | Update session title and context. |
+| `PATCH` | `/api/v1/sessions/:id` | Open | Update session context; title is regenerated server-side. |
 
 ---
 
 ## POST /api/v1/sessions
 
-Create a new survey session.
+Create a new survey session. The server generates `title` as `{district} {block} {gramPanchayat} - {Month} {Year}` from context fields.
 
 ### Request
 
 ```json
 {
-  "title": "Korba Block 3 — March 2026",
   "context": {
     "district": "Korba",
     "block": "Kartala",
     "gramPanchayat": "GP Name",
     "village": "Village Name",
     "surveyDate": "2026-03-15",
+    "distanceFromNearestMine": 0,
     "totalPopulation": 1200,
     "totalHouseholds": 250,
     "scHouseholds": 40,
@@ -43,6 +43,8 @@ Create a new survey session.
   }
 }
 ```
+
+Omit `totalPopulation`, `totalHouseholds`, `scHouseholds`, or `stHouseholds` to default them to `0`.
 
 ### Response
 
@@ -85,7 +87,7 @@ List sessions.
   "data": [
     {
       "id": "665a1b2c3d4e5f6789012345",
-      "title": "Korba Block 3 — March 2026",
+      "title": "Korba Kartala GP Name - March 2026",
       "context": {
         "district": "Korba",
         "block": "Kartala",
@@ -164,19 +166,19 @@ Get one session detail.
 
 ## PATCH /api/v1/sessions/:id
 
-Update session metadata for edit flow.
+Update session context for edit flow. Title is regenerated from district, block, gram panchayat, and survey date.
 
 ### Request
 
 ```json
 {
-  "title": "Korba Block 3 — Revised",
   "context": {
     "district": "Korba",
     "block": "Kartala",
     "gramPanchayat": "GP Name",
     "village": "Updated Village Name",
-    "surveyDate": "2026-03-16",
+    "surveyDate": "2026-06-16",
+    "distanceFromNearestMine": 0,
     "totalPopulation": 1200,
     "totalHouseholds": 250,
     "scHouseholds": 40,
@@ -196,7 +198,7 @@ Update session metadata for edit flow.
   "status": 200,
   "data": {
     "id": "665a1b2c3d4e5f6789012345",
-    "title": "Korba Block 3 — Revised",
+    "title": "Korba Kartala GP Name - June 2026",
     "context": {
       "district": "Korba",
       "block": "Kartala",
@@ -231,8 +233,8 @@ Update session metadata for edit flow.
 
 ## Frontend integration notes
 
-1. Call `POST /api/v1/sessions` to create.
+1. Call `POST /api/v1/sessions` with `context` only; do not send `title`.
 2. Call `GET /api/v1/sessions` for list screen.
 3. Call `GET /api/v1/sessions/:id` when session is selected.
-4. Call `PATCH /api/v1/sessions/:id` from session edit screen.
+4. Call `PATCH /api/v1/sessions/:id` from session edit screen; title updates automatically when context changes.
 5. `session_entries` routes provide actual entry stats; detail endpoint still returns placeholder `forms` summary.

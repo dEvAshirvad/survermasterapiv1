@@ -188,6 +188,23 @@ export async function listSessionGramPanchayatOptions(
   }
 }
 
+export async function listSessionVillageOptions(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const district = String(req.query.district ?? '');
+    const block = String(req.query.block ?? '');
+    const gramPanchayat = String(req.query.gramPanchayat ?? '');
+    const options = await sessionsService.listVillageOptions(district, block, gramPanchayat);
+    return Respond(res, options, 200);
+  }
+  catch (error) {
+    return next(error);
+  }
+}
+
 export async function searchSessions(
   req: Request,
   res: Response,
@@ -201,6 +218,7 @@ export async function searchSessions(
         typeof req.query.gramPanchayat === 'string'
           ? req.query.gramPanchayat
           : undefined,
+      village: typeof req.query.village === 'string' ? req.query.village : undefined,
     });
     return Respond(res, result, 200);
   }

@@ -15,13 +15,13 @@ import { SessionModel } from '@/modules/sessions/sessions.schema';
 const app = createApp();
 
 const sessionPayload = {
-  title: `Session Entries Test ${Date.now()}`,
   context: {
     district: 'Korba',
     block: 'Kartala',
     gramPanchayat: 'Test GP',
     village: 'Test Village',
     surveyDate: '2026-03-15',
+    distanceFromNearestMine: 0,
     totalPopulation: 1200,
     totalHouseholds: 250,
     scHouseholds: 40,
@@ -37,7 +37,12 @@ async function createSession(): Promise<string> {
     .post('/api/v1/sessions')
     .send({
       ...sessionPayload,
-      title: `Session Entries Test ${Date.now()}`,
+      context: {
+        ...sessionPayload.context,
+        district: `Korba-${Date.now()}`,
+        block: `Kartala-${Date.now()}`,
+        gramPanchayat: `Test GP-${Date.now()}`,
+      },
     })
     .expect(201);
   return response.body.data.id as string;

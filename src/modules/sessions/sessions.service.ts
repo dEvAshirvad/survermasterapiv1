@@ -1,11 +1,14 @@
 import type {
+  CreateSessionBody,
   CreateSessionInput,
   SessionSearchFilters,
+  UpdateSessionBody,
   UpdateSessionInput,
 } from '@/modules/sessions/sessions.schema';
 
 import APIError from '@/configs/errors/APIError';
 import { sessionEntriesRepository } from '@/modules/session-entries/session-entries.repository';
+import { buildSessionTitle } from '@/modules/sessions/sessions-title';
 import {
   toSessionDetail,
   toSessionListItem,
@@ -14,6 +17,13 @@ import { sessionsRepository } from '@/modules/sessions/sessions.repository';
 import { HttpErrorStatusCode } from '@/types/errors/errors.types';
 
 export class SessionsService {
+  private toPersistedInput(body: CreateSessionBody | UpdateSessionBody): CreateSessionInput | UpdateSessionInput {
+    return {
+      title: buildSessionTitle(body.context),
+      context: body.context,
+    };
+  }
+
   private isDuplicateKeyError(error: unknown) {
     return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 11000);
   }
@@ -32,7 +42,8 @@ export class SessionsService {
     });
   }
 
-  async create(input: CreateSessionInput) {
+  async create(body: CreateSessionBody) {
+    const input = this.toPersistedInput(body);
     const duplicateExisting = await sessionsRepository.findByDistrictBlockGramPanchayat(
       input.context.district,
       input.context.block,
@@ -74,7 +85,8 @@ export class SessionsService {
     return toSessionDetail(session);
   }
 
-  async update(sessionId: string, input: UpdateSessionInput) {
+  async update(sessionId: string, body: UpdateSessionBody) {
+    const input = this.toPersistedInput(body);
     const duplicateExisting = await sessionsRepository.findByDistrictBlockGramPanchayat(
       input.context.district,
       input.context.block,
@@ -125,6 +137,10 @@ export class SessionsService {
 
   async listGramPanchayatOptions(district: string, block: string) {
     return sessionsRepository.listDistinctGramPanchayats(district, block);
+  }
+
+  async listVillageOptions(district: string, block: string, gramPanchayat: string) {
+    return sessionsRepository.listDistinctVillages(district, block, gramPanchayat);
   }
 
   async search(filters: SessionSearchFilters) {

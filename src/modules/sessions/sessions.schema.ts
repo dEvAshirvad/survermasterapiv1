@@ -7,24 +7,30 @@ function trimmedString(max: number) {
   return z.string().trim().min(1).max(max);
 }
 
+function defaultZeroCount() {
+  return z.preprocess(
+    value => (value === undefined || value === null || value === '' ? 0 : value),
+    z.coerce.number().int().min(0),
+  ).default(0);
+}
+
 export const sessionContextSchema = z.object({
   district: trimmedString(100),
   block: trimmedString(100),
   gramPanchayat: trimmedString(200),
   village: trimmedString(200),
   surveyDate: z.coerce.date(),
-  distanceFromNearestMine: z.coerce.number().int().positive(),
-  totalPopulation: z.coerce.number().int().positive(),
-  totalHouseholds: z.coerce.number().int().positive(),
-  scHouseholds: z.coerce.number().int().positive(),
-  stHouseholds: z.coerce.number().int().positive(),
+  distanceFromNearestMine: defaultZeroCount(),
+  totalPopulation: defaultZeroCount(),
+  totalHouseholds: defaultZeroCount(),
+  scHouseholds: defaultZeroCount(),
+  stHouseholds: defaultZeroCount(),
   miningAffectedArea: z.enum(['direct', 'indirect']),
   surveyorName: z.string().trim().min(1).max(100),
   surveyorNameNIT: z.string().trim().min(1).max(100),
 });
 
 export const createSessionBodySchema = z.object({
-  title: trimmedString(200),
   context: sessionContextSchema,
 });
 
@@ -50,10 +56,17 @@ export const sessionGramPanchayatsQuerySchema = z.object({
   block: sessionFilterString,
 });
 
+export const sessionVillagesQuerySchema = z.object({
+  district: sessionFilterString,
+  block: sessionFilterString,
+  gramPanchayat: sessionFilterString,
+});
+
 export const sessionSearchQuerySchema = z.object({
   district: sessionFilterString.optional(),
   block: sessionFilterString.optional(),
   gramPanchayat: sessionFilterString.optional(),
+  village: sessionFilterString.optional(),
 });
 
 const sessionContextMongooseSchema = new Schema(
@@ -63,11 +76,11 @@ const sessionContextMongooseSchema = new Schema(
     gramPanchayat: { type: String, required: true, trim: true },
     village: { type: String, required: true, trim: true },
     surveyDate: { type: Date, required: true },
-    distanceFromNearestMine: { type: Number, required: true, min: 1 },
-    totalPopulation: { type: Number, required: true, min: 1 },
-    totalHouseholds: { type: Number, required: true, min: 1 },
-    scHouseholds: { type: Number, required: true, min: 1 },
-    stHouseholds: { type: Number, required: true, min: 1 },
+    distanceFromNearestMine: { type: Number, required: true, min: 0, default: 0 },
+    totalPopulation: { type: Number, required: true, min: 0, default: 0 },
+    totalHouseholds: { type: Number, required: true, min: 0, default: 0 },
+    scHouseholds: { type: Number, required: true, min: 0, default: 0 },
+    stHouseholds: { type: Number, required: true, min: 0, default: 0 },
     miningAffectedArea: {
       type: String,
       required: true,
@@ -109,8 +122,17 @@ export type SessionDocument = InferSchemaType<typeof sessionMongooseSchema> & {
 
 export type SessionLean = SessionDocument;
 
-export type CreateSessionInput = z.infer<typeof createSessionBodySchema>;
-export type UpdateSessionInput = z.infer<typeof updateSessionBodySchema>;
+export type SessionContextInput = z.infer<typeof sessionContextSchema>;
+export type CreateSessionBody = z.infer<typeof createSessionBodySchema>;
+export type UpdateSessionBody = z.infer<typeof updateSessionBodySchema>;
+
+export type CreateSessionInput = CreateSessionBody & {
+  title: string;
+};
+
+export type UpdateSessionInput = UpdateSessionBody & {
+  title: string;
+};
 
 export interface SessionFormSummaryItem {
   formCode: string;
@@ -126,6 +148,7 @@ export interface SessionSearchFilters {
   district?: string;
   block?: string;
   gramPanchayat?: string;
+  village?: string;
 }
 
 export const SessionModel = model('Session', sessionMongooseSchema);

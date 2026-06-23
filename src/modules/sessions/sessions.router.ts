@@ -9,6 +9,7 @@ import {
   listSessionDistrictOptions,
   listSessionGramPanchayatOptions,
   listSessions,
+  listSessionVillageOptions,
   searchSessions,
   updateSession,
 } from '@/modules/sessions/sessions.controller';
@@ -19,6 +20,7 @@ import {
   sessionGramPanchayatsQuerySchema,
   sessionIdParamsSchema,
   sessionSearchQuerySchema,
+  sessionVillagesQuerySchema,
   updateSessionBodySchema,
 } from '@/modules/sessions/sessions.schema';
 
@@ -33,6 +35,7 @@ const router = createRouter();
  *     summary: Create a survey session
  *     description: |
  *       Creates a new field survey session with geographic context.
+ *       Title is generated as `{district} {block} {gramPanchayat} - {Month} {Year}`.
  *     requestBody:
  *       required: true
  *       content:
@@ -40,12 +43,8 @@ const router = createRouter();
  *           schema:
  *             type: object
  *             required:
- *               - title
  *               - context
  *             properties:
- *               title:
- *                 type: string
- *                 example: Korba Block 3 — March 2026
  *               context:
  *                 type: object
  *                 required:
@@ -54,10 +53,6 @@ const router = createRouter();
  *                   - gramPanchayat
  *                   - village
  *                   - surveyDate
- *                   - totalPopulation
- *                   - totalHouseholds
- *                   - scHouseholds
- *                   - stHouseholds
  *                   - miningAffectedArea
  *                   - surveyorName
  *                   - surveyorNameNIT
@@ -78,21 +73,30 @@ const router = createRouter();
  *                     type: string
  *                     format: date
  *                     example: 2026-03-15
+ *                   distanceFromNearestMine:
+ *                     type: integer
+ *                     minimum: 0
+ *                     default: 0
+ *                     example: 0
  *                   totalPopulation:
  *                     type: integer
- *                     minimum: 1
+ *                     minimum: 0
+ *                     default: 0
  *                     example: 1200
  *                   totalHouseholds:
  *                     type: integer
- *                     minimum: 1
+ *                     minimum: 0
+ *                     default: 0
  *                     example: 250
  *                   scHouseholds:
  *                     type: integer
- *                     minimum: 1
+ *                     minimum: 0
+ *                     default: 0
  *                     example: 40
  *                   stHouseholds:
  *                     type: integer
- *                     minimum: 1
+ *                     minimum: 0
+ *                     default: 0
  *                     example: 60
  *                   miningAffectedArea:
  *                     type: string
@@ -213,6 +217,11 @@ router.get(
   validateRequest({ query: sessionGramPanchayatsQuerySchema }),
   listSessionGramPanchayatOptions,
 );
+router.get(
+  '/options/villages',
+  validateRequest({ query: sessionVillagesQuerySchema }),
+  listSessionVillageOptions,
+);
 
 /**
  * @openapi
@@ -273,7 +282,7 @@ router.get(
  *       - Sessions
  *     summary: Update session metadata
  *     description: |
- *       Updates session title and context fields.
+ *       Updates session context fields. Title is regenerated from district, block, gram panchayat, and survey date.
  *     parameters:
  *       - in: path
  *         name: id
@@ -287,11 +296,8 @@ router.get(
  *           schema:
  *             type: object
  *             required:
- *               - title
  *               - context
  *             properties:
- *               title:
- *                 type: string
  *               context:
  *                 type: object
  *     responses:

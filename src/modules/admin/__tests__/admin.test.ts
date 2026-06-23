@@ -12,6 +12,7 @@ import {
 import connectDB, { disconnectDB } from '@/configs/db/mongodb';
 import createApp from '@/configs/serverConfig';
 import { SessionEntryModel } from '@/modules/session-entries/session-entries.schema';
+import { buildSessionTitle } from '@/modules/sessions/sessions-title';
 import { SessionModel } from '@/modules/sessions/sessions.schema';
 
 const app = createApp();
@@ -35,8 +36,11 @@ function makeContext(suffix: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-async function seedSession(title: string, context: ReturnType<typeof makeContext>) {
-  const session = await SessionModel.create({ title, context });
+async function seedSession(context: ReturnType<typeof makeContext>) {
+  const session = await SessionModel.create({
+    title: buildSessionTitle(context),
+    context,
+  });
   return session._id as Types.ObjectId;
 }
 
@@ -66,6 +70,9 @@ describe('admin analytics API', () => {
 
   beforeAll(async () => {
     await connectDB();
+    const adminSessionIds = await SessionModel.find({ 'context.district': /^AdminDistrict-/ }).distinct('_id');
+    await SessionEntryModel.deleteMany({ sessionId: { $in: adminSessionIds } });
+    await SessionModel.deleteMany({ 'context.district': /^AdminDistrict-/ });
 
     const suffix = String(Date.now());
     contextA = makeContext(`${suffix}-a`);
@@ -76,8 +83,8 @@ describe('admin analytics API', () => {
       miningAffectedArea: 'indirect',
     });
 
-    sessionIdA = await seedSession(`Admin Analytics A ${suffix}`, contextA);
-    sessionIdB = await seedSession(`Admin Analytics B ${suffix}`, contextB);
+    sessionIdA = await seedSession(contextA);
+    sessionIdB = await seedSession(contextB);
 
     await Promise.all([
       seedEntry(sessionIdA, 'A', 0, contextA),
@@ -89,8 +96,9 @@ describe('admin analytics API', () => {
   });
 
   afterAll(async () => {
-    await SessionEntryModel.deleteMany({});
-    await SessionModel.deleteMany({ title: /^Admin Analytics / });
+    const adminSessionIds = await SessionModel.find({ 'context.district': /^AdminDistrict-/ }).distinct('_id');
+    await SessionEntryModel.deleteMany({ sessionId: { $in: adminSessionIds } });
+    await SessionModel.deleteMany({ 'context.district': /^AdminDistrict-/ });
     await disconnectDB();
   });
 

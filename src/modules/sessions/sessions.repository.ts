@@ -115,6 +115,23 @@ export class SessionsRepository {
       );
   }
 
+  async listDistinctVillages(
+    district: string,
+    block: string,
+    gramPanchayat: string,
+  ): Promise<string[]> {
+    return SessionModel.distinct('context.village', {
+      'context.district': exactCaseInsensitive(district),
+      'context.block': exactCaseInsensitive(block),
+      'context.gramPanchayat': exactCaseInsensitive(gramPanchayat),
+    })
+      .then(items =>
+        items
+          .filter(item => typeof item === 'string')
+          .sort((a, b) => a.localeCompare(b)),
+      );
+  }
+
   async searchByContext(filters: SessionSearchFilters): Promise<SessionLean[]> {
     const query: Record<string, unknown> = {};
     if (filters.district)
@@ -123,6 +140,8 @@ export class SessionsRepository {
       query['context.block'] = exactCaseInsensitive(filters.block);
     if (filters.gramPanchayat)
       query['context.gramPanchayat'] = exactCaseInsensitive(filters.gramPanchayat);
+    if (filters.village)
+      query['context.village'] = exactCaseInsensitive(filters.village);
 
     return SessionModel.find(query)
       .sort({ updatedAt: -1, createdAt: -1 })

@@ -28,7 +28,6 @@ function binaryParser(
 }
 
 const sessionPayload = {
-  title: `Exports Test ${Date.now()}`,
   context: {
     district: 'Korba',
     block: 'Kartala',
@@ -48,15 +47,14 @@ const sessionPayload = {
 
 async function createSessionAndEntry() {
   const nonce = `${Date.now()}-${Math.round(Math.random() * 100000)}`;
+  const context = {
+    ...sessionPayload.context,
+    gramPanchayat: `Export GP ${nonce}`,
+  };
   const sessionResponse = await request(app)
     .post('/api/v1/sessions')
     .send({
-      ...sessionPayload,
-      title: `Exports Test ${nonce}`,
-      context: {
-        ...sessionPayload.context,
-        gramPanchayat: `Export GP ${nonce}`,
-      },
+      context,
     })
     .expect(201);
 
